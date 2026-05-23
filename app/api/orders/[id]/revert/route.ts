@@ -2,8 +2,10 @@ import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 
+type OrderStatusValue = "WAITING" | "PREPARING" | "PRODUCTION" | "PRODUCTION_DONE" | "SHIPPED" | "IN_DELIVERY" | "ARRIVED" | "RECEIVED" | "DEFECTIVE" | "RETURN_RECEIVED" | "HOLD"
+
 // 현재 상태 → { 이전 상태, 지울 날짜 필드 }
-const revertMap: Record<string, { prev: string; clearField: string }> = {
+const revertMap: Record<string, { prev: OrderStatusValue; clearField: string }> = {
   PREPARING:       { prev: "WAITING",        clearField: "preparingDate" },
   PRODUCTION:      { prev: "PREPARING",      clearField: "productionDate" },
   PRODUCTION_DONE: { prev: "PRODUCTION",     clearField: "productionDoneDate" },
