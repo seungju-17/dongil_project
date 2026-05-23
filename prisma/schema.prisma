@@ -33,6 +33,7 @@ model User {
 enum UserRole {
   ADMIN
   MANAGER
+  SITE_MANAGER
   USER
 }
 
@@ -74,8 +75,15 @@ model Order {
   orderReceivedDate     DateTime?
   productionRequestDate DateTime?
   deliveryRequestDate   DateTime?
+  preparingDate         DateTime?
   productionDate        DateTime?
+  productionDoneDate    DateTime?
   shipmentDate          DateTime?
+  deliveryStartDate     DateTime?
+  arrivedDate           DateTime?
+  receivedDate          DateTime?
+  defectiveNote         String?   @db.Text
+  returnReceivedDate    DateTime?
 
   status         OrderStatus @default(WAITING)
   assignedUserId String?
@@ -98,9 +106,15 @@ model Order {
 
 enum OrderStatus {
   WAITING
+  PREPARING
   PRODUCTION
   PRODUCTION_DONE
   SHIPPED
+  IN_DELIVERY
+  ARRIVED
+  RECEIVED
+  DEFECTIVE
+  RETURN_RECEIVED
   HOLD
 }
 
@@ -150,8 +164,15 @@ enum ActivityType {
   ORDER_DELETED
   STATUS_CHANGED
   STATUS_REVERTED
+  PREPARING_STARTED
   PRODUCTION_STARTED
+  PRODUCTION_DONE
   SHIPMENT_COMPLETED
+  DELIVERY_STARTED
+  ORDER_ARRIVED
+  ORDER_RECEIVED
+  ORDER_DEFECTIVE
+  RETURN_RECEIVED
   LOT_ADDED
   LOT_UPDATED
   LOT_DELETED

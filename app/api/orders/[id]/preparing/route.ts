@@ -11,21 +11,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const order = await prisma.order.findUnique({ where: { id } })
   if (!order) return Response.json({ error: "발주를 찾을 수 없습니다." }, { status: 404 })
-  if (order.status !== "PRODUCTION_DONE")
-    return Response.json({ error: "생산완료 상태에서만 출고 처리가 가능합니다." }, { status: 400 })
+  if (order.status !== "WAITING")
+    return Response.json({ error: "대기 상태에서만 생산 준비 등록이 가능합니다." }, { status: 400 })
 
-  const { shipmentDate } = await req.json()
+  const { preparingDate } = await req.json()
 
   const updated = await prisma.order.update({
     where: { id },
     data: {
-      status: "SHIPPED",
-      shipmentDate: shipmentDate ? new Date(shipmentDate) : new Date(),
+      status: "PREPARING",
+      preparingDate: preparingDate ? new Date(preparingDate) : new Date(),
     },
   })
 
   await prisma.activity.create({
-    data: { orderId: id, userId: session.userId, action: "SHIPMENT_COMPLETED", changes: { from: "PRODUCTION_DONE", to: "SHIPPED" } },
+    data: { orderId: id, userId: session.userId, action: "PREPARING_STARTED", changes: { from: "WAITING", to: "PREPARING" } },
   })
 
   return Response.json(updated)

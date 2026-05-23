@@ -5,27 +5,27 @@ import { getSession } from "@/lib/auth"
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 })
-  if (session.role === "USER" || session.role === "SITE_MANAGER")
+  if (session.role === "USER")
     return Response.json({ error: "권한이 없습니다." }, { status: 403 })
 
   const { id } = await params
   const order = await prisma.order.findUnique({ where: { id } })
   if (!order) return Response.json({ error: "발주를 찾을 수 없습니다." }, { status: 404 })
-  if (order.status !== "PRODUCTION_DONE")
-    return Response.json({ error: "생산완료 상태에서만 출고 처리가 가능합니다." }, { status: 400 })
+  if (order.status !== "SHIPPED")
+    return Response.json({ error: "출고 상태에서만 배송 시작 처리가 가능합니다." }, { status: 400 })
 
-  const { shipmentDate } = await req.json()
+  const { deliveryStartDate } = await req.json()
 
   const updated = await prisma.order.update({
     where: { id },
     data: {
-      status: "SHIPPED",
-      shipmentDate: shipmentDate ? new Date(shipmentDate) : new Date(),
+      status: "IN_DELIVERY",
+      deliveryStartDate: deliveryStartDate ? new Date(deliveryStartDate) : new Date(),
     },
   })
 
   await prisma.activity.create({
-    data: { orderId: id, userId: session.userId, action: "SHIPMENT_COMPLETED", changes: { from: "PRODUCTION_DONE", to: "SHIPPED" } },
+    data: { orderId: id, userId: session.userId, action: "DELIVERY_STARTED", changes: { from: "SHIPPED", to: "IN_DELIVERY" } },
   })
 
   return Response.json(updated)

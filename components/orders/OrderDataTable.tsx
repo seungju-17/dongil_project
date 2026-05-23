@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { StatusBadge, type OrderStatus } from "./StatusBadge"
+import { StatusBadge, type OrderStatus, DONE_STATUSES } from "./StatusBadge"
 import { format, isThisWeek, isBefore, startOfDay } from "date-fns"
 import { ChevronUp, ChevronDown, Plus } from "lucide-react"
 
@@ -99,11 +99,11 @@ export function OrderDataTable({ initialData }: Props) {
         o.orderNumber.includes(search) ||
         o.clientName.includes(search) ||
         (o.siteName || "").includes(search)
-      const matchStatus = 
-        statusFilter === "ALL" 
-          ? true 
+      const matchStatus =
+        statusFilter === "ALL"
+          ? true
           : statusFilter === "IN_PROGRESS"
-            ? !["SHIPPED", "HOLD"].includes(o.status)
+            ? !([...DONE_STATUSES, "RECEIVED", "SHIPPED"] as string[]).includes(o.status)
             : o.status === statusFilter
             
       let matchQuick = true
@@ -113,7 +113,8 @@ export function OrderDataTable({ initialData }: Props) {
         matchQuick =
           !!o.deliveryRequestDate &&
           isBefore(new Date(o.deliveryRequestDate), today) &&
-          o.status !== "SHIPPED"
+          !(DONE_STATUSES as string[]).includes(o.status) &&
+          o.status !== "RECEIVED"
       }
       return matchSearch && matchStatus && matchQuick
     })
@@ -202,7 +203,8 @@ export function OrderDataTable({ initialData }: Props) {
         const isDelayed =
           order.deliveryRequestDate &&
           isBefore(new Date(order.deliveryRequestDate), today) &&
-          order.status !== "SHIPPED"
+          !(DONE_STATUSES as string[]).includes(order.status) &&
+          order.status !== "RECEIVED"
         return <StatusBadge status={isDelayed ? "DELAYED" : order.status} />
       },
     },
@@ -214,7 +216,7 @@ export function OrderDataTable({ initialData }: Props) {
           <Button
             variant="ghost" size="sm"
             onClick={() => router.push(`/orders/${row.original.id}/edit`)}
-            disabled={row.original.status === "SHIPPED"}
+            disabled={["RECEIVED", "RETURN_RECEIVED"].includes(row.original.status)}
           >
             수정
           </Button>
@@ -266,9 +268,15 @@ export function OrderDataTable({ initialData }: Props) {
               <SelectItem value="ALL">전체</SelectItem>
               <SelectItem value="IN_PROGRESS">진행중</SelectItem>
               <SelectItem value="WAITING">대기</SelectItem>
-              <SelectItem value="PRODUCTION">생산중</SelectItem>
+              <SelectItem value="PREPARING">생산 준비</SelectItem>
+              <SelectItem value="PRODUCTION">생산 중</SelectItem>
               <SelectItem value="PRODUCTION_DONE">생산완료</SelectItem>
-              <SelectItem value="SHIPPED">출고완료</SelectItem>
+              <SelectItem value="SHIPPED">출고</SelectItem>
+              <SelectItem value="IN_DELIVERY">배송 중</SelectItem>
+              <SelectItem value="ARRIVED">도착</SelectItem>
+              <SelectItem value="RECEIVED">수령완료</SelectItem>
+              <SelectItem value="DEFECTIVE">불량/반품</SelectItem>
+              <SelectItem value="RETURN_RECEIVED">반품 공장도착</SelectItem>
               <SelectItem value="HOLD">보류</SelectItem>
             </SelectContent>
           </Select>

@@ -9,7 +9,7 @@ export interface SessionPayload {
   userId: string
   username: string
   fullName: string
-  role: "ADMIN" | "MANAGER" | "USER"
+  role: "ADMIN" | "MANAGER" | "SITE_MANAGER" | "USER"
 }
 
 export async function createSession(payload: SessionPayload) {

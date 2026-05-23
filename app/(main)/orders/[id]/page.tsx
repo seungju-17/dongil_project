@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/orders/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductionShipmentActions } from "@/components/orders/ProductionShipmentActions"
+import { ArrivalActions } from "@/components/orders/ArrivalActions"
 import { ProductionLots } from "@/components/orders/ProductionLots"
 import { format } from "date-fns"
 import { ArrowLeft, Pencil, Printer } from "lucide-react"
@@ -27,14 +28,24 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 const activityLabel: Record<string, string> = {
-  ORDER_CREATED: "발주 등록",
-  ORDER_UPDATED: "발주 수정",
-  ORDER_DELETED: "발주 삭제",
-  STATUS_CHANGED: "상태 변경",
-  STATUS_REVERTED: "상태 되돌림",
-  PRODUCTION_STARTED: "생산 시작",
-  SHIPMENT_COMPLETED: "출고 완료",
+  ORDER_CREATED:       "발주 등록",
+  ORDER_UPDATED:       "발주 수정",
+  ORDER_DELETED:       "발주 삭제",
+  STATUS_CHANGED:      "상태 변경",
+  STATUS_REVERTED:     "상태 되돌림",
+  PREPARING_STARTED:   "생산 준비 시작",
+  PRODUCTION_STARTED:  "생산 시작",
+  PRODUCTION_DONE:     "생산완료",
+  SHIPMENT_COMPLETED:  "출고",
+  DELIVERY_STARTED:    "배송 시작",
+  ORDER_ARRIVED:       "현장 도착",
+  ORDER_RECEIVED:      "수령완료",
+  ORDER_DEFECTIVE:     "불량 처리",
+  RETURN_RECEIVED:     "반품 공장도착",
 }
+
+// 수정 버튼 비활성화 상태 (완료 단계)
+const NO_EDIT_STATUSES = new Set(["RECEIVED", "RETURN_RECEIVED"])
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -46,13 +57,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       createdBy: { select: { fullName: true } },
       activities: {
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 20,
         include: { user: { select: { fullName: true } } },
       },
     },
   }) as any
 
   if (!order) notFound()
+
+  const role = session?.role ?? "USER"
+  const canEdit = !NO_EDIT_STATUSES.has(order.status) && role !== "USER" && role !== "SITE_MANAGER"
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -62,7 +76,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </Link>
         <h2 className="text-lg font-semibold flex-1">{order.orderNumber}</h2>
         <StatusBadge status={order.status} />
-        {order.status !== "SHIPPED" && (
+        {canEdit && (
           <Link href={`/orders/${id}/edit`}>
             <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" />수정</Button>
           </Link>
@@ -101,10 +115,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <CardHeader><CardTitle className="text-sm">일정</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <Row label="주문서도착일" value={fmt(order.orderReceivedDate)} />
-            <Row label="생산의뢰일" value={fmt(order.productionRequestDate)} />
-            <Row label="납품요청일" value={fmt(order.deliveryRequestDate)} />
-            <Row label="생산일" value={fmt(order.productionDate)} />
-            <Row label="출고일" value={fmt(order.shipmentDate)} />
+            <Row label="생산의뢰일"  value={fmt(order.productionRequestDate)} />
+            <Row label="납품요청일"  value={fmt(order.deliveryRequestDate)} />
+            <Row label="생산 준비일" value={fmt(order.preparingDate)} />
+            <Row label="생산 시작일" value={fmt(order.productionDate)} />
+            <Row label="생산완료일"  value={fmt(order.productionDoneDate)} />
+            <Row label="출고일"      value={fmt(order.shipmentDate)} />
+            <Row label="배송 시작일" value={fmt(order.deliveryStartDate)} />
+            <Row label="현장 도착일" value={fmt(order.arrivedDate)} />
+            <Row label="수령일"      value={fmt(order.receivedDate)} />
+            <Row label="반품 도착일" value={fmt(order.returnReceivedDate)} />
           </CardContent>
         </Card>
 
@@ -123,15 +143,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </Card>
       </div>
 
-      {/* 생산/출고 처리 버튼 */}
+      {/* 공장 처리 (ADMIN, MANAGER) */}
       <ProductionShipmentActions
         orderId={id}
         status={order.status}
-        role={session?.role ?? "USER"}
+        role={role}
+      />
+
+      {/* 현장 수령 처리 (ADMIN, MANAGER, SITE_MANAGER) */}
+      <ArrivalActions
+        orderId={id}
+        status={order.status}
+        role={role}
+        defectiveNote={order.defectiveNote}
       />
 
       {/* 생산 조 배치 */}
-      <ProductionLots orderId={id} role={session?.role ?? "USER"} />
+      <ProductionLots orderId={id} role={role} />
 
       {/* 변경 이력 */}
       <Card>
@@ -148,6 +176,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   </span>
                   <span>{a.user?.fullName ?? "시스템"}</span>
                   <span className="text-gray-500">{activityLabel[a.action] ?? a.action}</span>
+                  {a.reason && <span className="text-red-500 text-xs">({a.reason})</span>}
                 </li>
               ))}
             </ul>

@@ -27,7 +27,7 @@ const statusBadge: Record<string, { label: string; className: string }> = {
   INACTIVE: { label: "비활성", className: "bg-gray-100 text-gray-600" },
 }
 
-const roleLabel: Record<string, string> = { ADMIN: "관리자", MANAGER: "매니저", USER: "사용자" }
+const roleLabel: Record<string, string> = { ADMIN: "관리자", MANAGER: "매니저", SITE_MANAGER: "현장관리자", USER: "사용자" }
 
 interface Props {
   users: User[]
@@ -153,12 +153,13 @@ export function AdminUsersClient({ users: initial, currentUserId }: Props) {
                         onValueChange={(v) => act(u.id, "changeRole", v ?? undefined)}
                         disabled={u.id === currentUserId || !!loading}
                       >
-                        <SelectTrigger className="h-7 w-24 text-xs">
+                        <SelectTrigger className="h-7 w-28 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ADMIN">관리자</SelectItem>
                           <SelectItem value="MANAGER">매니저</SelectItem>
+                          <SelectItem value="SITE_MANAGER">현장관리자</SelectItem>
                           <SelectItem value="USER">사용자</SelectItem>
                         </SelectContent>
                       </Select>

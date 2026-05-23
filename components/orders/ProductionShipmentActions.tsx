@@ -17,62 +17,105 @@ interface Props {
   role: string
 }
 
+// 공장 측에서 처리하는 단계만 표시 (SITE_MANAGER는 접근 불가)
+const FACTORY_ROLES = ["ADMIN", "MANAGER"]
+
+interface StepConfig {
+  label: string
+  dateLabel: string
+  dateKey: string
+  endpoint: string
+  buttonClass: string
+}
+
+const stepConfig: Partial<Record<OrderStatus, StepConfig>> = {
+  WAITING: {
+    label: "생산 준비",
+    dateLabel: "생산 준비일",
+    dateKey: "preparingDate",
+    endpoint: "preparing",
+    buttonClass: "bg-orange-500 hover:bg-orange-600 text-white",
+  },
+  PREPARING: {
+    label: "생산 시작",
+    dateLabel: "생산 시작일",
+    dateKey: "productionDate",
+    endpoint: "production",
+    buttonClass: "bg-yellow-500 hover:bg-yellow-600 text-white",
+  },
+  PRODUCTION: {
+    label: "생산완료",
+    dateLabel: "생산완료일",
+    dateKey: "productionDoneDate",
+    endpoint: "production-done",
+    buttonClass: "bg-blue-500 hover:bg-blue-600 text-white",
+  },
+  PRODUCTION_DONE: {
+    label: "출고",
+    dateLabel: "출고일",
+    dateKey: "shipmentDate",
+    endpoint: "shipment",
+    buttonClass: "bg-indigo-600 hover:bg-indigo-700 text-white",
+  },
+  SHIPPED: {
+    label: "배송 시작",
+    dateLabel: "배송 시작일",
+    dateKey: "deliveryStartDate",
+    endpoint: "in-delivery",
+    buttonClass: "bg-purple-600 hover:bg-purple-700 text-white",
+  },
+  // DEFECTIVE → RETURN_RECEIVED 는 공장 측
+  DEFECTIVE: {
+    label: "반품 공장도착",
+    dateLabel: "반품 도착일",
+    dateKey: "returnReceivedDate",
+    endpoint: "return-received",
+    buttonClass: "bg-rose-600 hover:bg-rose-700 text-white",
+  },
+}
+
 const revertLabels: Partial<Record<OrderStatus, string>> = {
-  PRODUCTION: "대기 상태로 되돌리기",
-  PRODUCTION_DONE: "생산중 상태로 되돌리기",
+  PREPARING: "대기 상태로 되돌리기",
+  PRODUCTION: "생산 준비 상태로 되돌리기",
+  PRODUCTION_DONE: "생산 중 상태로 되돌리기",
   SHIPPED: "생산완료 상태로 되돌리기",
+  IN_DELIVERY: "출고 상태로 되돌리기",
 }
 
 export function ProductionShipmentActions({ orderId, status, role }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const today = format(new Date(), "yyyy-MM-dd")
-  const [prodDate, setProdDate] = useState(today)
-  const [shipDate, setShipDate] = useState(today)
+  const [actionDate, setActionDate] = useState(today)
   const [showRevert, setShowRevert] = useState(false)
   const [revertReason, setRevertReason] = useState("")
 
-  if (role === "USER") return null
+  // 공장 관리자만 표시
+  if (!FACTORY_ROLES.includes(role)) return null
 
-  async function handleProduction() {
+  const step = stepConfig[status]
+  const canRevert = !!revertLabels[status]
+
+  async function handleAction() {
+    if (!step) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/orders/${orderId}/production`, {
+      const res = await fetch(`/api/orders/${orderId}/${step.endpoint}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productionDate: prodDate }),
+        body: JSON.stringify({ [step.dateKey]: actionDate }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error); return }
-      toast.success("생산 등록되었습니다.")
-      router.refresh()
-    } catch { toast.error("오류가 발생했습니다.") }
-    finally { setLoading(false) }
-  }
-
-  async function handleShipment() {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/orders/${orderId}/shipment`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipmentDate: shipDate }),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error); return }
-      toast.success("출고 등록되었습니다.")
+      toast.success(`${step.label} 처리되었습니다.`)
       router.refresh()
     } catch { toast.error("오류가 발생했습니다.") }
     finally { setLoading(false) }
   }
 
   async function handleRevert() {
-    if (!revertReason.trim()) {
-      toast.error("되돌리기 사유를 입력해주세요.")
-      return
-    }
+    if (!revertReason.trim()) { toast.error("되돌리기 사유를 입력해주세요."); return }
     if (!confirm("정말 이전 단계로 되돌리시겠습니까?")) return
-
     setLoading(true)
     try {
       const res = await fetch(`/api/orders/${orderId}/revert`, {
@@ -90,38 +133,29 @@ export function ProductionShipmentActions({ orderId, status, role }: Props) {
     finally { setLoading(false) }
   }
 
-  const canRevert = status !== "WAITING" && status !== "HOLD"
+  if (!step && !canRevert) return null
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-sm">생산 / 출고 처리</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-sm">공장 처리</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-6">
-          {status === "WAITING" && (
-            <div className="flex items-end gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">생산일</Label>
-                <Input type="date" value={prodDate} onChange={(e) => setProdDate(e.target.value)} className="w-36" />
-              </div>
-              <Button onClick={handleProduction} disabled={loading} className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                생산 등록
-              </Button>
+        {step && (
+          <div className="flex items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{step.dateLabel}</Label>
+              <Input
+                type="date"
+                value={actionDate}
+                onChange={(e) => setActionDate(e.target.value)}
+                className="w-36"
+              />
             </div>
-          )}
-          {(status === "PRODUCTION" || status === "PRODUCTION_DONE") && (
-            <div className="flex items-end gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">출고일</Label>
-                <Input type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} className="w-36" />
-              </div>
-              <Button onClick={handleShipment} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
-                출고 등록
-              </Button>
-            </div>
-          )}
-        </div>
+            <Button onClick={handleAction} disabled={loading} className={step.buttonClass}>
+              {step.label}
+            </Button>
+          </div>
+        )}
 
-        {/* 되돌리기 영역 */}
         {canRevert && (
           <div className="border-t pt-4">
             {!showRevert ? (
@@ -129,16 +163,14 @@ export function ProductionShipmentActions({ orderId, status, role }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowRevert(true)}
-                className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 gap-1"
+                className="text-red-600 border-red-300 hover:bg-red-50 gap-1"
               >
                 <Undo2 className="h-4 w-4" />
-                {revertLabels[status] || "이전 단계로 되돌리기"}
+                {revertLabels[status]}
               </Button>
             ) : (
               <div className="space-y-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-red-700">
-                  ⚠ {revertLabels[status]}
-                </p>
+                <p className="text-sm font-medium text-red-700">⚠ {revertLabels[status]}</p>
                 <div className="space-y-1">
                   <Label className="text-xs text-red-600">사유 (필수)</Label>
                   <Input
@@ -149,20 +181,10 @@ export function ProductionShipmentActions({ orderId, status, role }: Props) {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    onClick={handleRevert}
-                    disabled={loading}
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
+                  <Button onClick={handleRevert} disabled={loading} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
                     확인
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setShowRevert(false); setRevertReason("") }}
-                    disabled={loading}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => { setShowRevert(false); setRevertReason("") }} disabled={loading}>
                     취소
                   </Button>
                 </div>
