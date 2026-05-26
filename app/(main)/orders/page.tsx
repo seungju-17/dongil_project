@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export default async function OrdersPage() {
   const orders = await prisma.order.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { orderNumber: "asc" },
     take: 200,
     include: { createdBy: { select: { fullName: true } } },
   })
@@ -19,8 +19,14 @@ export default async function OrdersPage() {
     orderReceivedDate: o.orderReceivedDate?.toISOString() ?? null,
     productionRequestDate: o.productionRequestDate?.toISOString() ?? null,
     deliveryRequestDate: o.deliveryRequestDate?.toISOString() ?? null,
+    preparingDate: o.preparingDate?.toISOString() ?? null,
     productionDate: o.productionDate?.toISOString() ?? null,
+    productionDoneDate: o.productionDoneDate?.toISOString() ?? null,
     shipmentDate: o.shipmentDate?.toISOString() ?? null,
+    deliveryStartDate: o.deliveryStartDate?.toISOString() ?? null,
+    arrivedDate: o.arrivedDate?.toISOString() ?? null,
+    receivedDate: o.receivedDate?.toISOString() ?? null,
+    returnReceivedDate: o.returnReceivedDate?.toISOString() ?? null,
   }))
 
   return (

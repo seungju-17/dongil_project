@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { format } from "date-fns"
+import { PrintButtons } from "@/components/orders/PrintButtons"
 
 export const dynamic = "force-dynamic"
 
@@ -36,20 +37,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
         body { font-family: 'Malgun Gothic', sans-serif; background: white; color: #111; }
       `}</style>
 
-      <div className="no-print fixed top-4 right-4 flex gap-2 z-50">
-        <button
-          onClick={() => window.print()}
-          className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
-        >
-          🖨️ 인쇄
-        </button>
-        <button
-          onClick={() => window.close()}
-          className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300"
-        >
-          닫기
-        </button>
-      </div>
+      <PrintButtons />
 
       <div className="max-w-2xl mx-auto p-8 text-sm">
         {/* 헤더 */}

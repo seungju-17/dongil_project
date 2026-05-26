@@ -31,16 +31,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const order = await prisma.order.findUnique({ where: { id } })
   if (!order) return Response.json({ error: "발주를 찾을 수 없습니다." }, { status: 404 })
 
-  if (order.status === "SHIPPED") {
-    return Response.json({ error: "출고완료 상태는 수정할 수 없습니다." }, { status: 400 })
+  const ADMIN_ROLES = ["ADMIN", "MANAGER"]
+  if (!ADMIN_ROLES.includes(session.role) && ["RECEIVED", "RETURN_RECEIVED"].includes(order.status)) {
+    return Response.json({ error: "완료된 발주는 수정할 수 없습니다." }, { status: 400 })
   }
 
   const body = await req.json()
   const before = { ...order }
 
+  const VALID_STATUSES = ["WAITING","PREPARING","PRODUCTION","PRODUCTION_DONE","SHIPPED","IN_DELIVERY","ARRIVED","RECEIVED","DEFECTIVE","RETURN_RECEIVED","HOLD"]
+  const newStatus = body.status && VALID_STATUSES.includes(body.status) ? body.status : undefined
+
   const updated = await prisma.order.update({
     where: { id },
     data: {
+      ...(newStatus ? { status: newStatus } : {}),
       clientName: body.clientName ?? order.clientName,
       clientId: body.clientId !== undefined ? (body.clientId || null) : order.clientId,
       siteName: body.siteName !== undefined ? (body.siteName || null) : order.siteName,
@@ -63,14 +68,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   })
 
-  await prisma.activity.create({
-    data: {
-      orderId: id,
-      userId: session.userId,
-      action: "ORDER_UPDATED",
-      changes: { before, after: updated },
-    },
-  })
+  if (newStatus && newStatus !== before.status) {
+    await prisma.activity.create({
+      data: {
+        orderId: id,
+        userId: session.userId,
+        action: "STATUS_CHANGED",
+        changes: { from: before.status, to: newStatus },
+      },
+    })
+  } else {
+    await prisma.activity.create({
+      data: {
+        orderId: id,
+        userId: session.userId,
+        action: "ORDER_UPDATED",
+        changes: { before, after: updated },
+      },
+    })
+  }
 
   return Response.json(updated)
 }

@@ -24,6 +24,20 @@ interface Client {
   shortCode: string | null
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  WAITING: "대기",
+  PREPARING: "생산 준비",
+  PRODUCTION: "생산 중",
+  PRODUCTION_DONE: "생산완료",
+  SHIPPED: "출고",
+  IN_DELIVERY: "배송 중",
+  ARRIVED: "도착",
+  RECEIVED: "수령완료",
+  DEFECTIVE: "불량/반품",
+  RETURN_RECEIVED: "반품 공장도착",
+  HOLD: "보류",
+}
+
 interface OrderData {
   id?: string
   orderNumber?: string
@@ -37,6 +51,7 @@ interface OrderData {
   productName?: string
   noteDefect?: string
   noteJoint?: string
+  status?: string
   orderReceivedDate?: string | null
   productionRequestDate?: string | null
   deliveryRequestDate?: string | null
@@ -45,6 +60,7 @@ interface OrderData {
 interface OrderFormProps {
   initialData?: OrderData
   mode: "create" | "edit"
+  canChangeStatus?: boolean
 }
 
 function toDateInput(val: string | null | undefined): string {
@@ -122,7 +138,7 @@ function ClientCombobox({
   )
 }
 
-export function OrderForm({ initialData, mode }: OrderFormProps) {
+export function OrderForm({ initialData, mode, canChangeStatus }: OrderFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
@@ -138,6 +154,7 @@ export function OrderForm({ initialData, mode }: OrderFormProps) {
     productName: initialData?.productName || "",
     noteDefect: initialData?.noteDefect || "",
     noteJoint: initialData?.noteJoint || "",
+    status: initialData?.status || "WAITING",
     orderReceivedDate: toDateInput(initialData?.orderReceivedDate),
     productionRequestDate: toDateInput(initialData?.productionRequestDate),
     deliveryRequestDate: toDateInput(initialData?.deliveryRequestDate),
@@ -180,6 +197,7 @@ export function OrderForm({ initialData, mode }: OrderFormProps) {
           clientName: form.clientName,
           clientId: form.clientId || null,
           siteName: form.siteName,
+          ...(mode === "edit" && canChangeStatus ? { status: form.status } : {}),
           quantity: form.quantity ? Number(form.quantity) : null,
           area: form.area ? form.area : null,
           frameType: form.frameType,
@@ -220,6 +238,21 @@ export function OrderForm({ initialData, mode }: OrderFormProps) {
               className="bg-gray-50 text-gray-400"
             />
           </div>
+          {mode === "edit" && canChangeStatus && (
+            <div className="space-y-1">
+              <Label>상태</Label>
+              <Select value={form.status} onValueChange={(v: string | null) => { if (v) set("status", v) }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label>업체명 *</Label>
             <ClientCombobox

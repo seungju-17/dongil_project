@@ -37,8 +37,14 @@ interface Order {
   orderReceivedDate: string | null
   productionRequestDate: string | null
   deliveryRequestDate: string | null
+  preparingDate: string | null
   productionDate: string | null
+  productionDoneDate: string | null
   shipmentDate: string | null
+  deliveryStartDate: string | null
+  arrivedDate: string | null
+  receivedDate: string | null
+  returnReceivedDate: string | null
   status: OrderStatus
   createdBy: { fullName: string }
   createdAt: string

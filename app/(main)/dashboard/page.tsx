@@ -37,16 +37,21 @@ export default async function DashboardPage() {
     }) as any[],
   ])
 
+  // 발주목록 필터와 동일한 기준
+  const DONE_STATUSES = ["RECEIVED", "RETURN_RECEIVED", "HOLD"]
+
   const total = orders.length
-  const inProgress = orders.filter((o: any) => !["SHIPPED", "HOLD"].includes(o.status)).length
+  const inProgress = orders.filter((o: any) => !([...DONE_STATUSES, "SHIPPED"] as string[]).includes(o.status)).length
   const thisWeek = orders.filter(
     (o: any) => o.deliveryRequestDate && isThisWeek(new Date(o.deliveryRequestDate), { weekStartsOn: 1 })
   ).length
   const delayed = orders.filter(
-    (o: any) => o.deliveryRequestDate && isBefore(new Date(o.deliveryRequestDate), today) && o.status !== "SHIPPED"
+    (o: any) => o.deliveryRequestDate &&
+      isBefore(new Date(o.deliveryRequestDate), today) &&
+      !(DONE_STATUSES as string[]).includes(o.status)
   ).length
-  const shipped = orders.filter((o: any) => o.status === "SHIPPED").length
-  const completionRate = total > 0 ? Math.round((shipped / total) * 100) : 0
+  const received = orders.filter((o: any) => o.status === "RECEIVED").length
+  const completionRate = total > 0 ? Math.round((received / total) * 100) : 0
 
   const todayOrders = orders.filter(
     (o: any) => o.deliveryRequestDate && isSameDay(new Date(o.deliveryRequestDate), today)
@@ -54,14 +59,23 @@ export default async function DashboardPage() {
 
   const statusCounts: Record<string, number> = {
     WAITING: orders.filter((o: any) => o.status === "WAITING").length,
+    PREPARING: orders.filter((o: any) => o.status === "PREPARING").length,
     PRODUCTION: orders.filter((o: any) => o.status === "PRODUCTION").length,
     PRODUCTION_DONE: orders.filter((o: any) => o.status === "PRODUCTION_DONE").length,
-    SHIPPED: shipped,
+    SHIPPED: orders.filter((o: any) => o.status === "SHIPPED").length,
+    IN_DELIVERY: orders.filter((o: any) => o.status === "IN_DELIVERY").length,
+    ARRIVED: orders.filter((o: any) => o.status === "ARRIVED").length,
+    RECEIVED: received,
+    DEFECTIVE: orders.filter((o: any) => o.status === "DEFECTIVE").length,
+    RETURN_RECEIVED: orders.filter((o: any) => o.status === "RETURN_RECEIVED").length,
     HOLD: orders.filter((o: any) => o.status === "HOLD").length,
   }
 
   const recentDelayed = orders
-    .filter((o: any) => o.deliveryRequestDate && isBefore(new Date(o.deliveryRequestDate), today) && o.status !== "SHIPPED")
+    .filter((o: any) => o.deliveryRequestDate &&
+      isBefore(new Date(o.deliveryRequestDate), today) &&
+      !(DONE_STATUSES as string[]).includes(o.status)
+    )
     .slice(0, 5)
 
   // 거래처별 발주 수 Top 5
@@ -106,7 +120,7 @@ export default async function DashboardPage() {
           { label: "진행 중인 발주", value: inProgress, color: "text-blue-600", href: "/orders?status=IN_PROGRESS" },
           { label: "이번 주 납품", value: thisWeek, color: "text-green-600", href: "/orders?quickFilter=THIS_WEEK" },
           { label: "지연 건수", value: delayed, color: "text-red-600", href: "/orders?quickFilter=DELAYED" },
-          { label: "완료율", value: `${completionRate}%`, color: "text-gray-700", href: "/orders" },
+          { label: "수령완료율", value: `${completionRate}%`, color: "text-gray-700", href: "/orders?status=RECEIVED" },
         ].map(({ label, value, color, href }) => (
           <Link key={label} href={href}>
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
@@ -169,8 +183,11 @@ export default async function DashboardPage() {
               if (count === 0 || total === 0) return null
               const pct = (count / total) * 100
               const colors: Record<string, string> = {
-                WAITING: "bg-gray-300", PRODUCTION: "bg-yellow-400",
-                PRODUCTION_DONE: "bg-blue-400", SHIPPED: "bg-green-500", HOLD: "bg-red-400",
+                WAITING: "bg-gray-300", PREPARING: "bg-orange-300",
+                PRODUCTION: "bg-yellow-400", PRODUCTION_DONE: "bg-blue-400",
+                SHIPPED: "bg-indigo-400", IN_DELIVERY: "bg-purple-400",
+                ARRIVED: "bg-teal-400", RECEIVED: "bg-green-500",
+                DEFECTIVE: "bg-red-300", RETURN_RECEIVED: "bg-rose-400", HOLD: "bg-red-500",
               }
               return <div key={status} className={`${colors[status]}`} style={{ width: `${pct}%` }} title={`${status}: ${count}건`} />
             })}
